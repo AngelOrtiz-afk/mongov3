@@ -1,0 +1,34 @@
+db.pedidos.aggregate(
+    [
+        {
+            $match: {
+                monto_total: { $gt: 500 },
+                fecha_pedido: { $gte: "2025-06-22T00:00:00Z" }
+            }
+        },
+        {
+            $lookup: {
+                from: "clientes",
+                localField: "cliente_id",
+                foreignField: "_id",
+                as: "cliente"
+            }
+        },
+        {
+            $unwind: "$cliente"
+        },
+        {
+            $project: {
+                _id: "$cliente._id",
+                nombre: "$cliente.nombre",
+                email: "$cliente.email",
+                fecha_registro: "$cliente.fecha_registro",
+                direccion: "$cliente.direccion",
+                telefono: "$cliente.telefono",
+            }
+        },
+        {
+            $sort: { _id: 1 }
+        }
+    ]
+)
