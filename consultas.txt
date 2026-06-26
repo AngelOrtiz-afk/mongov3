@@ -1,0 +1,86 @@
+#LAS CONSULTAS EN MONGO DB
+
+//1.1 Todos los eventos
+ Python: coleccion_eventos.find({}, {"codigo":1,"nombre":1,"fecha":1,"lugar":1,"categoria":1})
+db.eventos.find({}, { codigo:1, nombre:1, fecha:1, lugar:1, categoria:1 })
+
+1.2 Filtrar por categoría "Tecnología"
+js// Python: find({"categoria": "Tecnología"}, {...})
+db.eventos.find(
+  { categoria: "Tecnología" },
+  { codigo:1, nombre:1, fecha:1, lugar:1, categoria:1 }
+)
+
+1.3 Eventos desde agosto 2026 en adelante
+js// Python: find({"fecha": {"$gte": "2026-08-01T00:00:00Z"}}, {...})
+db.eventos.find(
+  { fecha: { $gte: "2026-08-01T00:00:00Z" } },
+  { codigo:1, nombre:1, fecha:1 }
+)
+
+2.1 Buscar por nombre parcial 
+js// Python: {"nombre": {"$regex": nombre_buscar, "$options": "i"}}
+db.invitados.find({ nombre: { $regex: "carla", $options: "i" } })
+
+2.2 Buscar por dominio de correo
+js// Python: {"correo": {"$regex": "@empresa\\.cl$", "$options": "i"}}
+db.invitados.find({ correo: { $regex: "@empresa\\.cl$", $options: "i" } })
+
+2.3 Invitados con estado "activo"
+js// Python: {"estado": {"$regex": "^activo$", "$options": "i"}}
+db.invitados.find({ estado: { $regex: "^activo$", $options: "i" } })
+
+REQ 3 — Validar Acceso ($lookup)
+js// Python: coleccion_eventos.aggregate(pipeline) con $match + $lookup + $project
+db.eventos.aggregate([
+  {
+    $match: {
+      codigo: "EVT-001",
+      "invitados.rut": "11.009.876-3"
+    }
+  },
+  {
+    $lookup: {
+      from: "invitados",
+      localField: "invitados.rut",
+      foreignField: "rut",
+      as: "datos_invitados"
+    }
+  },
+  {
+    $project: {
+      codigo: 1,
+      nombre: 1,
+      fecha: 1,
+      lugar: 1,
+      invitados: 1,
+      datos_invitados: {
+        $filter: {
+          input: "$datos_invitados",
+          as: "inv",
+          cond: { $eq: ["$$inv.rut", "11.009.876-3"] }
+        }
+      }
+    }
+  }
+])
+
+REQ 4 — Top 3 Eventos con más Confirmados (Agregación)
+js// Python: pipeline con $unwind + $match + $group + $sort + $limit
+db.eventos.aggregate([
+  { $unwind: "$invitados" },
+  { $match: { "invitados.confirmado": true } },
+  {
+    $group: {
+      _id: "$_id",
+      codigo:           { $first: "$codigo" },
+      nombre:           { $first: "$nombre" },
+      fecha:            { $first: "$fecha" },
+      lugar:            { $first: "$lugar" },
+      categoria:        { $first: "$categoria" },
+      total_confirmados:{ $sum: 1 }
+    }
+  },
+  { $sort: { total_confirmados: -1 } },
+  { $limit: 3 }
+])
